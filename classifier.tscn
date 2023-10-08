@@ -1,0 +1,20 @@
+[gd_scene load_steps=2 format=3 uid="uid://cpgyrfijr82k6"]
+
+[ext_resource type="Script" path="res://classifier.gd" id="1_fxfte"]
+
+[node name="Classifier" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_fxfte")
+colors = Array[Color]([Color(1, 1, 1, 1), Color(0.247059, 0.74902, 0.458824, 1), Color(0.972313, 0.452322, 0.487213, 1)])
+unfocused_mod = Color(0.65098, 0.65098, 0.65098, 1)
+
+[node name="SegmentList" type="VBoxContainer" parent="."]
+layout_mode = 1
+anchors_preset = -1
+anchor_right = 1.0
+grow_horizontal = 2
