@@ -18,3 +18,9 @@ layout_mode = 1
 anchors_preset = -1
 anchor_right = 1.0
 grow_horizontal = 2
+
+[node name="ScrollDebouncer" type="Timer" parent="."]
+wait_time = 0.2
+
+[connection signal="gui_input" from="." to="." method="_on_gui_input"]
+[connection signal="timeout" from="ScrollDebouncer" to="." method="_on_scroll_debouncer_timeout"]
