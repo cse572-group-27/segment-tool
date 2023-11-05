@@ -1,0 +1,44 @@
+[gd_scene load_steps=2 format=3 uid="uid://cao6aw8ryy8il"]
+
+[ext_resource type="Script" path="res://menu.gd" id="1_prl4a"]
+
+[node name="Menu" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_prl4a")
+
+[node name="VBoxContainer" type="VBoxContainer" parent="."]
+layout_mode = 1
+anchors_preset = 13
+anchor_left = 0.5
+anchor_right = 0.5
+anchor_bottom = 1.0
+offset_left = -76.5
+offset_right = 76.5
+grow_horizontal = 2
+grow_vertical = 2
+alignment = 1
+
+[node name="Button" type="Button" parent="VBoxContainer"]
+layout_mode = 2
+text = "Open Segment File"
+
+[node name="Quit" type="Button" parent="VBoxContainer"]
+layout_mode = 2
+text = "Quit"
+
+[node name="FileDialog" type="FileDialog" parent="VBoxContainer"]
+title = "Open a File"
+initial_position = 2
+size = Vector2i(640, 480)
+ok_button_text = "Open"
+file_mode = 0
+access = 2
+
+[connection signal="pressed" from="VBoxContainer/Button" to="." method="_on_button_pressed"]
+[connection signal="pressed" from="VBoxContainer/Quit" to="." method="_on_quit_pressed"]
+[connection signal="file_selected" from="VBoxContainer/FileDialog" to="." method="_on_file_dialog_file_selected"]

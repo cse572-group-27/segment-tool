@@ -1,4 +1,4 @@
-[gd_scene load_steps=5 format=3 uid="uid://bk18kvbhjx37n"]
+[gd_scene load_steps=6 format=3 uid="uid://bk18kvbhjx37n"]
 
 [ext_resource type="Script" path="res://main.gd" id="1_th2k7"]
 [ext_resource type="Shader" path="res://classifier.gdshader" id="2_af6bh"]
@@ -6,6 +6,13 @@
 
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_xkluq"]
 shader = ExtResource("2_af6bh")
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_43e5i"]
+bg_color = Color(0.0745098, 0.0745098, 0.0745098, 1)
+corner_radius_top_left = 4
+corner_radius_top_right = 4
+corner_radius_bottom_right = 4
+corner_radius_bottom_left = 4
 
 [node name="Main" type="Control"]
 layout_mode = 3
@@ -15,6 +22,9 @@ anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
 script = ExtResource("1_th2k7")
+bounds_adjuster_prev_color = Color(0.631373, 0.921569, 1, 1)
+bounds_adjuster_color = Color(1, 1, 1, 1)
+bounds_adjuster_next_color = Color(1, 0.835294, 0.615686, 1)
 
 [node name="VBoxContainer" type="VBoxContainer" parent="."]
 layout_mode = 1
@@ -76,6 +86,18 @@ text = "Cancel"
 layout_mode = 2
 size_flags_horizontal = 3
 
+[node name="JumpUnlabeledButton" type="Button" parent="VBoxContainer/PanelContainer/MarginContainer/HBoxContainer"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_vertical = 4
+text = "Jump to first unlabeled segment"
+
+[node name="SplitSegmentButton" type="Button" parent="VBoxContainer/PanelContainer/MarginContainer/HBoxContainer"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_vertical = 4
+text = "Split segment"
+
 [node name="AdjustBoundsButton" type="Button" parent="VBoxContainer/PanelContainer/MarginContainer/HBoxContainer"]
 unique_name_in_owner = true
 layout_mode = 2
@@ -86,15 +108,87 @@ text = "Adjust bounds"
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_vertical = 4
-text = "Mark as advert"
+text = "Mark as advert (J)"
 
 [node name="MarkContentButton" type="Button" parent="VBoxContainer/PanelContainer/MarginContainer/HBoxContainer"]
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_vertical = 4
-text = "Mark as content"
+text = "Mark as content (K)"
+
+[node name="BoundsAdjuster" type="PanelContainer" parent="."]
+unique_name_in_owner = true
+visible = false
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="MarginContainer" type="MarginContainer" parent="BoundsAdjuster"]
+layout_mode = 2
+theme_override_constants/margin_left = 128
+theme_override_constants/margin_top = 128
+theme_override_constants/margin_right = 128
+theme_override_constants/margin_bottom = 128
+
+[node name="VBoxContainer" type="VBoxContainer" parent="BoundsAdjuster/MarginContainer"]
+layout_mode = 2
+
+[node name="PanelContainer" type="PanelContainer" parent="BoundsAdjuster/MarginContainer/VBoxContainer"]
+layout_mode = 2
+size_flags_vertical = 3
+theme_override_styles/panel = SubResource("StyleBoxFlat_43e5i")
+
+[node name="MarginContainer" type="MarginContainer" parent="BoundsAdjuster/MarginContainer/VBoxContainer/PanelContainer"]
+layout_mode = 2
+theme_override_constants/margin_left = 24
+theme_override_constants/margin_top = 24
+theme_override_constants/margin_right = 24
+theme_override_constants/margin_bottom = 24
+
+[node name="BoundsAdjusterLabel" type="SelectableRichTextLabel" parent="BoundsAdjuster/MarginContainer/VBoxContainer/PanelContainer/MarginContainer"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_vertical = 3
+focus_mode = 2
+theme_override_colors/font_selected_color = Color(0.501961, 0.984314, 0.678431, 1)
+theme_override_colors/selection_color = Color(0.258824, 0.258824, 0.258824, 1)
+bbcode_enabled = true
+selection_enabled = true
+deselect_on_focus_loss_enabled = false
+
+[node name="HBoxContainer" type="HBoxContainer" parent="BoundsAdjuster/MarginContainer/VBoxContainer"]
+layout_mode = 2
+theme_override_constants/separation = 32
+alignment = 2
+
+[node name="BoundsRevertButton" type="Button" parent="BoundsAdjuster/MarginContainer/VBoxContainer/HBoxContainer"]
+layout_mode = 2
+text = "Revert Changes"
+
+[node name="BoundsSaveButton" type="Button" parent="BoundsAdjuster/MarginContainer/VBoxContainer/HBoxContainer"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Save Changes"
+
+[node name="FileDialog" type="FileDialog" parent="."]
+initial_position = 2
+size = Vector2i(640, 480)
+ok_button_text = "Save"
+access = 2
+filters = PackedStringArray("*.json; JavaScript Object Notation")
 
 [connection signal="finished" from="VBoxContainer/MarginContainer/SubViewportContainer/SubViewport/Classifier" to="." method="_on_classifier_finished"]
-[connection signal="set_inputs_disabled" from="VBoxContainer/MarginContainer/SubViewportContainer/SubViewport/Classifier" to="." method="_on_classifier_set_inputs_disabled"]
+[connection signal="pressed" from="VBoxContainer/PanelContainer/MarginContainer/HBoxContainer/ContinueButton" to="." method="_on_continue_button_pressed"]
+[connection signal="pressed" from="VBoxContainer/PanelContainer/MarginContainer/HBoxContainer/CancelButton" to="." method="_on_cancel_button_pressed"]
+[connection signal="pressed" from="VBoxContainer/PanelContainer/MarginContainer/HBoxContainer/JumpUnlabeledButton" to="." method="_on_jump_unlabeled_button_pressed"]
+[connection signal="pressed" from="VBoxContainer/PanelContainer/MarginContainer/HBoxContainer/SplitSegmentButton" to="." method="_on_split_segment_button_pressed"]
+[connection signal="pressed" from="VBoxContainer/PanelContainer/MarginContainer/HBoxContainer/AdjustBoundsButton" to="." method="_on_adjust_bounds_button_pressed"]
 [connection signal="pressed" from="VBoxContainer/PanelContainer/MarginContainer/HBoxContainer/MarkAdvertButton" to="VBoxContainer/MarginContainer/SubViewportContainer/SubViewport/Classifier" method="mark_advert"]
 [connection signal="pressed" from="VBoxContainer/PanelContainer/MarginContainer/HBoxContainer/MarkContentButton" to="VBoxContainer/MarginContainer/SubViewportContainer/SubViewport/Classifier" method="mark_content"]
+[connection signal="selection_active" from="BoundsAdjuster/MarginContainer/VBoxContainer/PanelContainer/MarginContainer/BoundsAdjusterLabel" to="." method="_on_bounds_adjuster_label_selection_active"]
+[connection signal="pressed" from="BoundsAdjuster/MarginContainer/VBoxContainer/HBoxContainer/BoundsRevertButton" to="." method="_on_bounds_adjuster_revert_button_pressed"]
+[connection signal="pressed" from="BoundsAdjuster/MarginContainer/VBoxContainer/HBoxContainer/BoundsSaveButton" to="." method="_on_save_button_pressed"]
+[connection signal="file_selected" from="FileDialog" to="." method="_on_file_dialog_file_selected"]
