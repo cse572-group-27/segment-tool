@@ -1,8 +1,8 @@
 extends Control
 
-@onready var vbox := $VBoxContainer
-@onready var button := $VBoxContainer/Button
-@onready var dialog := $VBoxContainer/FileDialog
+@onready var vbox := $VBoxContainer2
+@onready var button := $VBoxContainer2/VBoxContainer/Button
+@onready var dialog := $VBoxContainer2/VBoxContainer/FileDialog
 
 const MAIN := preload("res://main.tscn")
 
@@ -11,7 +11,7 @@ var main: Control = null
 
 # Called when the node enters the scene tree for the first time.
 func _ready() -> void:
-	pass # Replace with function body.
+	dialog.get_theme_stylebox("panel").bg_color = RenderingServer.get_default_clear_color()
 
 
 # Called every frame. 'delta' is the elapsed time since the previous frame.

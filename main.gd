@@ -27,6 +27,7 @@ var segments: PackedStringArray
 # Called when the node enters the scene tree for the first time.
 func _ready() -> void:
 	classifier.set_segments(segments)
+	dialog.get_theme_stylebox("panel").bg_color = RenderingServer.get_default_clear_color()
 
 
 func _unhandled_input(event: InputEvent) -> void:

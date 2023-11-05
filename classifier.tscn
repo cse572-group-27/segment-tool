@@ -11,7 +11,7 @@ grow_horizontal = 2
 grow_vertical = 2
 script = ExtResource("1_fxfte")
 colors = Array[Color]([Color(1, 1, 1, 1), Color(0.501961, 0.984314, 0.678431, 1), Color(0.988235, 0.584314, 0.592157, 1)])
-unfocused_mod = Color(0.65098, 0.65098, 0.65098, 1)
+unfocused_mod = Color(0.870588, 0.870588, 0.870588, 0.862745)
 
 [node name="SegmentList" type="VBoxContainer" parent="."]
 layout_mode = 1
