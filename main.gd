@@ -21,13 +21,26 @@ enum AdjustMode {
 
 var adjust_mode: AdjustMode
 
-var segments: PackedStringArray
-
 
 # Called when the node enters the scene tree for the first time.
 func _ready() -> void:
-	classifier.set_segments(segments)
 	dialog.get_theme_stylebox("panel").bg_color = RenderingServer.get_default_clear_color()
+
+
+func set_file_path(file_path: String) -> void:
+	await ready
+	dialog.current_dir = file_path.get_base_dir()
+	dialog.current_file = file_path.get_file().replace(file_path.get_extension(), "json")
+	classifier.set_file_path(file_path)
+
+
+func set_prelabeled_path(file_path: String) -> void:
+	await ready
+	dialog.current_dir = file_path.get_base_dir()
+	dialog.current_file = file_path.get_file().replace(file_path.get_extension(), "json")
+	classifier.set_prelabeled_path(file_path)
+	$PreClassifyProgress.queue_free()
+	$VBoxContainer.visible = true
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -142,3 +155,21 @@ func _on_file_dialog_file_selected(path: String) -> void:
 
 func _on_jump_unlabeled_button_pressed() -> void:
 	classifier.jump_first_unlabeled()
+
+
+func _on_classifier_preclassify_finished() -> void:
+	$PreClassifyProgress.queue_free()
+	$VBoxContainer.visible = true
+
+
+func _on_classifier_preclassify_message(message) -> void:
+	$PreClassifyProgress/Label.text = message
+
+
+func _on_classifier_preclassify_max(value) -> void:
+	%ProgressBar.max_value = value
+	%ProgressBar.visible = true
+
+
+func _on_classifier_preclassify_value(value) -> void:
+	%ProgressBar.value = value

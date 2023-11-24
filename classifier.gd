@@ -1,5 +1,9 @@
 extends Control
 
+signal preclassify_message(message: String)
+signal preclassify_max(value: int)
+signal preclassify_value(value: int)
+signal preclassify_finished
 signal finished(finished: bool)
 
 @export var colors: Array[Color]
@@ -24,14 +28,15 @@ class Segment:
 		segment.text = segment_text
 		segment.type = Type.UNLABELED
 		
-		segment.label = Label.new()
-		segment.label.text = segment_text
-		segment.label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		
 		segment.original_text = ""
 		segment.adjusted = created_from_split
 		
 		return segment
+	
+	func init() -> void:
+		label = Label.new()
+		label.text = text
+		label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	
 	func update_text(segment_text: String) -> void:
 		if original_text == "":
@@ -53,6 +58,7 @@ var adjustments: Array[Dictionary] = []
 var adjusting_from: Array[String] = []
 
 var pre_classifier: BoundProcess
+var pre_classify_thread: Thread
 
 const TWEEN_TIME: float = 0.5
 const ACCELERATION: float = 8800.0
@@ -64,28 +70,68 @@ const MAX_SPEED: float = 6000.0
 
 
 func _ready() -> void:
-	# Connect to the pre-classifier
+	pre_classify_thread = Thread.new()
+
+
+func _preclassify_thread_func(file_path: String) -> void:
 	var path = ""
 	if OS.has_feature("editor"):
-		path = ProjectSettings.globalize_path("res://pre_classifier.py")
+		path = ProjectSettings.globalize_path("res://setup_preclassifier.sh")
 	else:
-		path = OS.get_executable_path().get_base_dir().path_join("../Resources/pre_classifier.py")
+		path = OS.get_executable_path().get_base_dir().path_join("../Resources/setup_preclassifier.sh")
 		if (!FileAccess.file_exists(path)):
 			printerr("Pre-classifier not found at path: '%s'" % path)
 			return
 	
-	pre_classifier = BoundProcess.start("python3", [path])
+	pre_classifier = BoundProcess.start("bash", [path])
 	if not pre_classifier.is_running():
 		printerr("Unable to start pre-classifier!")
 		return
 	
 	if pre_classifier.write_line("HELLO") != OK or pre_classifier.read_line() != "READY":
 		printerr("Unable to initialize pre-classifier!")
+		return
+	
+	if pre_classifier.write_line("READFILE") != OK or pre_classifier.read_line() != "OK":
+		printerr("Unable to command to read file!")
+		return
+	
+	if pre_classifier.write_line(file_path) != OK:
+		printerr("Unable to send file path!")
+		return
+	
+	emit_signal.call_deferred("preclassify_message", "Segmenting...")
+	
+	var count := 0
+	var processing := true
+	
+	while processing:
+		var line = pre_classifier.read_line()
+		
+		var message := JSON.parse_string(line) as Dictionary
+		count += 1
+		
+		if message == null:
+			printerr("Failed to parse: %s" % line)
+		
+		if message["message_type"] == "segment_count":
+			emit_signal.call_deferred("preclassify_max", int(message["data"]))
+			emit_signal.call_deferred("preclassify_message", "Pre-classifying...")
+		elif message["message_type"] == "segment":
+			receive_segment(message["data"], count)
+		elif message["message_type"] == "finished":
+			processing = false
+	
+	pre_classifier.write_line("GOODBYE")
+	receive_finished.call_deferred()
 
 
 func _process(delta: float) -> void:
-	if is_instance_valid(pre_classifier) and not pre_classifier.is_running():
-		pre_classifier = null
+	if is_instance_valid(pre_classifier):
+		if pre_classifier.is_running():
+			return
+		else:
+			pre_classifier = null
 	
 	if segments.is_empty():
 		return
@@ -112,38 +158,97 @@ func _process(delta: float) -> void:
 	cached_segment_index = segment_index
 
 
-func set_segments(segment_texts: PackedStringArray) -> void:
+func receive_segment(segment_data: Dictionary, count: int) -> void:
+	var segment = Segment.create(segment_data["text"])
+	segments.append(segment)
+
+	var content = segment_data["content"].to_float()
+	var ad = segment_data["ad"].to_float()
+
+	if (content - ad) > 2.0:
+		segment.type = Segment.Type.CONTENT
+	elif (ad - content) > 2.0:
+		segment.type = Segment.Type.AD
+		
+	emit_signal.call_deferred("preclassify_value", count)
+
+
+func receive_finished() -> void:
+	preclassify_finished.emit()
+	
 	var first := true
 	
-	for segment_text in segment_texts:
-		var segment = Segment.create(segment_text)
-		segments.append(segment)
-		
-		segment.type = _pre_classify(segment_text)
-		
+	for segment in segments:
+		segment.init()
 		segment_list.add_child(segment.label)
-		
+
 		if first:
-			first = false
 			segment.label.modulate = colors[segment.type]
+			first = false
 		else:
 			segment.label.modulate = colors[segment.type] * unfocused_mod
 	
-	pre_classifier.write_line("GOODBYE")
-	
-	# Position first label, wait for redraw
-	modulate = Color.TRANSPARENT
 	await get_tree().process_frame
-	
+
 	var viewport_height = size.y
 	var label_half_height = segment_list.get_child(0).size.y / 2.0
+
+	screen_midpoint = viewport_height / 2.0
+	var target_height = screen_midpoint - label_half_height
+	segment_list.position.y = target_height
+	cached_target_position = segment_list.global_position.y
+
+	modulate = Color.WHITE
+	pre_classify_thread.wait_to_finish()
 	
+	check_finished()
+
+
+func set_file_path(file_path: String) -> void:
+	pre_classify_thread.start(_preclassify_thread_func.bind(file_path))
+	modulate = Color.TRANSPARENT
+
+
+func set_prelabeled_path(file_path: String) -> void:
+	var file = FileAccess.open(file_path, FileAccess.READ)
+	file.get_line() # Skip header
+	
+	var first = true
+	while not file.eof_reached():
+		var line = file.get_csv_line()
+		
+		if line.size() != 2:
+			continue
+		
+		var text = ", ".join(line.slice(1))
+		
+		var segment = Segment.create(text)
+		segments.append(segment)
+
+		if line[0] == "non-sponsor":
+			segment.type = Segment.Type.CONTENT
+		elif line[0] == "sponsor":
+			segment.type = Segment.Type.AD
+		segment.init()
+		segment_list.add_child(segment.label)
+
+		if first:
+			segment.label.modulate = colors[segment.type]
+			first = false
+		else:
+			segment.label.modulate = colors[segment.type] * unfocused_mod
+		
+	await get_tree().process_frame
+
+	var viewport_height = size.y
+	var label_half_height = segment_list.get_child(0).size.y / 2.0
+
 	screen_midpoint = viewport_height / 2.0
 	var target_height = screen_midpoint - label_half_height
 	segment_list.position.y = target_height
 	cached_target_position = segment_list.global_position.y
 	
-	modulate = Color.WHITE
+	check_finished()
 
 
 func mark_content() -> void:
@@ -214,6 +319,7 @@ func finish_adjust_bounds(new_segments: PackedStringArray) -> void:
 			adjusting_to.push_back(new_segments[0])
 	elif not new_segments[0].is_empty():
 		var segment = Segment.create(new_segments[0], true)
+		segment.init()
 		segments.insert(0, segment)
 		segment_list.add_child(segment.label)
 		segment_list.move_child(segment.label, 0)
@@ -233,6 +339,7 @@ func finish_adjust_bounds(new_segments: PackedStringArray) -> void:
 			adjusting_to.push_back(new_segments[2])
 	elif not new_segments[2].is_empty():
 		var segment = Segment.create(new_segments[2], true)
+		segment.init()
 		segments.append(segment)
 		segment_list.add_child(segment.label)
 		segment.label.modulate = colors[0] * unfocused_mod
@@ -257,6 +364,7 @@ func finish_split_segment(new_segments: PackedStringArray) -> void:
 	
 	if not new_segments[0].is_empty():
 		var segment = Segment.create(new_segments[0], true)
+		segment.init()
 		segments.insert(segment_index, segment)
 		segment_list.add_child(segment.label)
 		segment_list.move_child(segment.label, segment_index)
@@ -269,6 +377,7 @@ func finish_split_segment(new_segments: PackedStringArray) -> void:
 	
 	if not new_segments[2].is_empty():
 		var segment = Segment.create(new_segments[2], true)
+		segment.init()
 		segments.insert(segment_index + 1, segment)
 		segment_list.add_child(segment.label)
 		segment_list.move_child(segment.label, segment_index + 1)
@@ -372,7 +481,7 @@ func _pre_classify(text: String) -> Segment.Type:
 	var errors = []
 	var response = pre_classifier.read_line(BoundProcess.READ_STDOUT, errors)
 	if errors[0] != OK:
-		printerr("Pre-classifier could not send response!")
+		printerr("Pre-classifier could not send response!\n\t%s" % errors[0])
 		return Segment.Type.UNLABELED
 	
 	if response == "ERROR":
